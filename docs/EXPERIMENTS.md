@@ -4,8 +4,22 @@ A living backlog of what we want to try. Check things off, add freely. Findings 
 experiments migrate to `FINDING_AID.md` + `lingbot_map_brief.md`.
 
 **Baseline settings (as of 2026-08-08):** reconstruct at `--fps 10`, `--use_sdpa`,
-`--kv_cache_sliding_window 32`, `--num_scale_frames 4`. That's our *VM-safe ceiling* (the model's 64/8
-defaults MCE-crash this box; even sw48 crashed). Fuse with leveling. Deploy to walk.bluekittymeow.com.
+`--kv_cache_sliding_window 48`, `--num_scale_frames 4`. **`sw48/nsf4` is our proven 16GB ceiling**
+(renders 200 clean frames; only a benign teardown segfault). Fuse with leveling. Deploy to
+walk.bluekittymeow.com.
+
+**VRAM ceiling — the hard boundary (mapped 2026-08-08, throttled runs, SDPA, forced 518):**
+- ✅ `sw48/nsf4` fits. ❌ `sw64/nsf4` OOMs. ❌ `sw48/nsf8` & `sw64/nsf8` OOM → **`nsf8` and window>48 both overflow.**
+- **`--image_size` is LOCKED to 518** — the checkpoint's `pos_embed` is hard-baked to the 37×37/1370-token
+  grid; `--image_size 448` fails weight-loading (`size mismatch [1,1370,1024] vs [1,1025,1024]`). The quadratic
+  memory lever is unavailable without a pos_embed-interpolation code patch. (The "size sacrifice" in good early
+  runs was cropping/downscaling the *source footage*, NOT the model's internal res — it always resamples to 518.)
+- **`--offload_to_cpu` and `--camera_num_iterations` do NOT exist in `batch_demo.py`** (demo.py-only) — the
+  paper's biggest camera-KV lever (4× cut) is useless for MP4 flythroughs.
+- CPU throttle (CPUQuota 400% + OMP=3 + nice) fully defeats the *MCE crash* but not the *VRAM* ceiling —
+  it's parallelism-in-memory (whole KV cache held at once), not sequential compute you can slow down.
+- **Only path past sw48/nsf4: FlashInfer** (paged KV cache, more memory-efficient than SDPA + quantizable) —
+  blocked by no `nvcc` in WSL. Install `cuda-toolkit-12-8` to unlock it and push the window higher. See infra list.
 
 ---
 
@@ -47,8 +61,13 @@ defaults MCE-crash this box; even sw48 crashed). Fuse with leveling. Deploy to w
   per-view Sim(3) → a *closed feed-forward* splat. Marginal ROI vs the trained gsplat; optional.
 - [ ] **gsplat pose-optimization** — enable pose+intrinsics optimization / bundle adjustment during splat
   training (per lingbot issue #35) to reduce splat overfit-to-trajectory.
-- [ ] **Fresh-VM sw48/nsf4 attempt** — push the quality knobs one rung past our safe 32/4 (borderline; crashed
-  once, might hold on a clean VM).
+- [x] ~~Fresh-VM sw48/nsf4 attempt~~ — **DONE: sw48/nsf4 fits, sw64 & nsf8 don't. sw48/nsf4 is the ceiling.**
+- [ ] **FlashInfer unlock** — install `cuda-toolkit-12-8` in WSL → paged KV cache → push window past 48 / afford
+  nsf8. The single infra job that raises the VRAM ceiling.
+- [ ] **pos_embed interpolation patch** — patch `load_model` to interpolate the 518 `pos_embed` to a smaller
+  grid, unlocking `--image_size 448/384` (the quadratic lever) for lower-res-but-higher-window runs. Optional.
+- [ ] **Re-render catacombs2 hero at sw48/nsf4** and eyeball vs the shipped sw32/nsf4 (`catacombs2q`) — confirm
+  the wider window visibly helps before adopting sw48 as the default (screenshots are source of truth).
 
 ## 🗺️ Big / ambitious
 
