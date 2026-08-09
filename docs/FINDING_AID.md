@@ -124,3 +124,22 @@ averages detail away) · Poisson (smooth, invents lumpy detail) · BPA (honest t
 differently. **Point cloud stays the medium of choice** for these scenes — dots never average, so fine relief
 survives and you fly *through* the space; meshes are the better *solid object* + take a skin, but aren't an
 upgrade for walkthroughs. Five courthouse `.glb`s remain deployed (`walk/mesh.html?model=<glb>`) as the reference set.
+
+---
+
+## Long walks + STITCHING (2026-08-09) — the whole cathedral chase
+
+| Scene / artifact | What it is | Finding |
+|---|---|---|
+| `kowloon-full` | 843-frame / 84s Kowloon mega-walk (longest continuous E03 segment), max knobs | **Max knobs hold long paths** — 3.6° drift over 843 frames (no spiral). But it's the meandering *room-tour* part of E03 (camera doubles back through cluttered workshops) → geometry good, but *confusing to walk*. Lesson: longest ≠ best; pick a corridor. |
+| `stitch_windows.py` | The VGGT-Long window stitcher (agent-researched) | Per-window scale-normalize → dense-point Umeyama Sim(3) on shared overlap (Huber-IRLS) → chain → frame-ownership merge. **Align on dense points, not camera centers** (collinear nave centers → ill-conditioned). |
+| `cathval` (not deployed) | 3-window Cologne stitch | **FAILED** — crowds poisoned the overlap correspondences (seam resid 0.17, one window flipped). Also Cologne has ZOOMS = phantom dolly. The footage, not the stitcher. |
+| `aarhus-cathedral` | 800-frame single walk, empty Aarhus Domkirke | **The clean win.** Empty + no-zoom → crisp readable geometry (walls, arches, nave). "What the model does when the footage doesn't sabotage it." |
+| `aarhus-stitched` | 3 empty Aarhus windows → one nave (Sim(3) stitched) | **STITCHING PROVEN.** Empty overlaps → tight fits → 3 chunks merge into one continuous walkable nave. The ~800-frame ceiling is NOT the real limit — clean footage stitches to arbitrary length. |
+
+**The through-line of the whole cathedral chase:** every failure was **footage**, not method. Zoom (phantom
+dolly), crowds (smear + poisoned overlaps), meandering/doubling-back paths (confusing), open cluttered rooms
+(low parallax). The reconstruction + stitching pipeline is sound; feed it a **single unbroken, zoom-free, empty,
+corridor-like walk** and it sings. Algorithmic footage-scorer (`cath_score.py`) + the empty-walk YouTube channels
+are how we find such footage. Also this session: **mobile touch controls** on the walk viewer (drag-look,
+pinch-dolly, on-screen walk buttons, auto-detect + toggle).

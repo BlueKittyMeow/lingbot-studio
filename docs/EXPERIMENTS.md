@@ -98,9 +98,36 @@ the full `sw64/nsf8` now runs at `--image_size 448`). Kept below as the historic
   paged-KV index cap (`stream.py:226` = max_frame_num+100), so one flag fixes both. Optional proper fix: ~8-line
   dynamic temporal-table extension in rope.py. **Unblocks whole-tape + 5k-frame mega-runs.**
 
-- [ ] **Two-window stitching** — implement the Umeyama-Sim(3)-on-shared-camera-centres recipe (banked in the
-  brief) to reconstruct corridors longer than the ~320-frame VM ceiling at full fps-10. Unlocks the *whole*
-  Kowloon tape / 5k-frame catacomb mega-scenes.
+- [x] **Window STITCHING — BUILT & VALIDATED (2026-08-09).** `scripts/stitch_windows.py` — VGGT-Long recipe
+  (agent-researched, arXiv 2507.16443): per-window scale-normalize (median depth→1) → **dense-point Umeyama
+  Sim(3)** on shared overlap frames (confidence-weighted Huber-IRLS) → chain → frame-ownership merge → voxel
+  dedup → leveled tiers. **Key fix vs our banked recipe: align on DENSE per-pixel 3D points, NOT camera centers**
+  — a nave's centers are collinear → camera-center Sim(3) is ill-conditioned (roll unconstrained). Overlap frames
+  share the same physical frames → pixel-aligned correspondence is free.
+  - **Params:** 300-frame windows, 40-frame overlap; sequential chaining suffices for a non-looping walk (loop
+    closure optional). Run: `python stitch_windows.py <overlap> <out_prefix> <win_dir0> <win_dir1> ...`.
+  - **VALIDATED on empty Aarhus** (`aarhus-stitched` scene): 3 windows → one coherent continuous nave. FAILED on
+    crowded Cologne (`cathval`, seams kinked, resid 0.17) — **moving people poison the overlap correspondences.**
+  - **Unlocks arbitrarily long walks** (whole tapes, mega-scenes) once footage is clean.
+- **★ FOOTAGE-QUALITY LESSONS (2026-08-09) — the method was never the bottleneck, the footage was:**
+  - **ZOOM = phantom dolly.** Optical zoom changes focal length AND mimics forward motion without translation →
+    the model "walks" the camera when it didn't move → sprayed geometry + wild per-window scale variance. Fatal.
+    Reject footage with zooms.
+  - **Moving people smear + poison stitching** (bad overlap correspondences → bad Sim(3)). Prefer EMPTY venues.
+  - **Corridors/naves reconstruct best** (parallax + tight walls); open cluttered rooms + camera doubling-back =
+    confusing (Kowloon room-tour: low drift but unwalkable). "Longest continuous segment" ≠ "best to walk."
+  - **Algorithmic clean-stretch finder (`scripts/cath_score.py`):** the reconstruction's OWN metrics score
+    footage — low **up-drift** + high **straightness (net/path)** + real path length = clean forward walk; high
+    drift / low straightness = zoom/pan/chaos. Auto-maps where a long video is walkable. (Cologne's one clean
+    stretch: ~980s, drift 2.2°, straight 0.88.)
+  - **Good footage sources:** dedicated continuous-walk YouTube channels ("First person walking", "The Perfect
+    Walk", "Dave's walks", "4K WALK") — single unbroken take, constant focal length, no narration. Empty/quiet
+    cathedrals (Aarhus, Ely, Norwich) > tourist megachurches (Cologne, Sagrada). Aarhus Domkirke (empty, no zoom)
+    was the winner.
+- [x] ~~mega-run octree-RAM gotcha~~ — past ~800 frames the model's octree/CPU-move stage exhausts the 8GB WSL RAM
+  cap and crash-kills the process, but **all NPZs are already saved** → fuse from NPZs directly (the octree is
+  the model's own viewer prep, which we don't use). Seen on kowloon-full (843f) + aarhus-walk (800f). Bump WSL
+  RAM or just ignore the "failed" unit.
 - [ ] **Potree viewer** — octree-LOD web renderer for buttery mega-scenes on the Iris Xe (no moving/still swap
   seam). Do it before the mega-scenes. (Recipe in the brief.)
 - [ ] **World-Mirror closed splat** — hook `rasterization.py` for per-view gaussians (pre-fusion), apply the
@@ -158,6 +185,13 @@ Kowloon whole-walk (cropped, leveled) · catacombs / catacombs2 / catacombs20 (f
 courthouse density A/B (sparse wins) · sky-masked trained gsplat (the beauty) · World-Mirror install +
 pose-conditioning + Kobayashi-Maru closure proof · first skin (waterlily courthouse) · cathedral 20s test ·
 the studio repo + finding aid + gallery.
+
+**2026-08-09 long-walk + stitching night:** **kowloon-full** (843-frame / 84s mega-walk, 3.6° drift — max knobs
+hold long paths) · diagnosed it as a meandering room-tour (geometry good, footage unwalkable) · **built + validated
+the VGGT-Long window STITCHER** (`stitch_windows.py`) · learned the footage-quality lessons (zoom = phantom dolly;
+crowds poison stitching; empty naves win) · built the algorithmic clean-stretch finder · hunted + found empty-cathedral
+footage → **aarhus-cathedral** (clean 800-frame empty walk) + **aarhus-stitched** (3 windows → one nave, stitching
+proven on clean footage). Mobile touch controls added to the walk viewer.
 
 **2026-08-08/09 knob-quest:** mapped the 518 VRAM ceiling (sw48/nsf4 max) · **built FlashInfer on WSL**
 (nvcc+gcc-14+conda-sysroot+libcuda, MCE-safe) · **pos_embed lower-res patch → full defaults sw64/nsf8 @448** ·
