@@ -69,10 +69,24 @@ walk.bluekittymeow.com.
   scales better on long sequences → matters for future mega-maps/stitching), and it's the prerequisite for the
   pos_embed patch below. Toolchain build recipe banked in the brief (cuda-nvcc 12.8 + gcc-14 + conda-forge
   sysroot 2.28 to dodge Ubuntu-26.04 glibc 2.41 + WSL libcuda linking; all MCE-safe via single-thread throttle).
-- [ ] **★ pos_embed interpolation patch** — THE remaining ceiling-raiser. Patch `load_model`/forward to
-  interpolate the 518 `pos_embed` to a smaller grid → unlock `--image_size 448/384` (the quadratic memory lever)
-  → the freed VRAM affords `sw64` → FlashInfer makes it fast. Moderate code change; the only real path past
-  sw48/nsf4 without new hardware.
+- [x] ~~pos_embed interpolation patch~~ — **DONE & WINS. The FULL model defaults `sw64/nsf8` now fit at
+  `--image_size 448`** (rendered 200/200 frames; OOM'd every way at 518). Resolution IS the juggle.
+  - **Patch:** `demo_render/demo.py` `load_model` — `_adapt_pos_embed()` bicubic-interpolates the checkpoint's
+    518 pos_embed (1370 tok, 37×37) down to the target grid before `load_state_dict` (backup: `demo.py.bak_lowres`).
+    Works because the model is resolution-agnostic everywhere except that one DINOv2 param (RoPE + DPT head +
+    FlashInfer KV are all runtime-sized; the ViT even keeps `interpolate_pos_encoding` live every forward).
+  - **Cleaner alt (agent-recommended, not yet applied):** add `--model_img_size 518` (build at native 518,
+    load clean, NO checkpoint edit) + drive input via `--image_size 448` → the forward interpolates ONCE
+    (vs my load-time patch's negligible double-resample). Same VRAM (KV sized by *actual* tokens, not img_size).
+  - **Legal `--image_size`: multiples of 14 only — 448 (32×14), 392 (28×14), 378 (27×14). NOT 384.**
+  - **Quality:** 518→448 ≈13% linear downscale, DINOv2/VGGT "graceful regime"; coarse drift metrics unchanged
+    so far → **needs eyes-on** (fuse + walk vs the shipped 518 scene) before adopting as default.
+  - **Recipe (full defaults @448):** FlashInfer env (no `--use_sdpa`) + `--kv_cache_sliding_window 64
+    --num_scale_frames 8 --image_size 448`, throttled. Fits ~clean on 16GB.
+- [ ] **FP8 KV cache (2nd path to sw64, keeps 518)** — fork `ureeey/lingbot-map-rtx4060-8g@rtx4060_8g` adds
+  `--kv_cache_fp8` (FlashInfer-only; we have it). Halves the KV pool → `sw64@518` should fit. BUT the fork's own
+  benches flag FP8 KV as **"significant" pose/trajectory degradation** — real cost for geometry. Weight-quant
+  `--quant_wa mix` is "minor" but doesn't free the KV pool. Trade: 448-lower-detail (our patch) vs 518-noisier-pose.
 - [ ] **Re-render catacombs2 hero at sw48/nsf4** and eyeball vs the shipped sw32/nsf4 (`catacombs2q`) — confirm
   the wider window visibly helps before adopting sw48 as the default (screenshots are source of truth).
 
