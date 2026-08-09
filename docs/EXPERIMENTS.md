@@ -61,11 +61,18 @@ walk.bluekittymeow.com.
   per-view Sim(3) → a *closed feed-forward* splat. Marginal ROI vs the trained gsplat; optional.
 - [ ] **gsplat pose-optimization** — enable pose+intrinsics optimization / bundle adjustment during splat
   training (per lingbot issue #35) to reduce splat overfit-to-trajectory.
-- [x] ~~Fresh-VM sw48/nsf4 attempt~~ — **DONE: sw48/nsf4 fits, sw64 & nsf8 don't. sw48/nsf4 is the ceiling.**
-- [ ] **FlashInfer unlock** — install `cuda-toolkit-12-8` in WSL → paged KV cache → push window past 48 / afford
-  nsf8. The single infra job that raises the VRAM ceiling.
-- [ ] **pos_embed interpolation patch** — patch `load_model` to interpolate the 518 `pos_embed` to a smaller
-  grid, unlocking `--image_size 448/384` (the quadratic lever) for lower-res-but-higher-window runs. Optional.
+- [x] ~~Fresh-VM sw48/nsf4 attempt~~ — **DONE: sw48/nsf4 fits, sw64 & nsf8 don't (confirmed on a clean GPU).
+  sw48/nsf4 is the ceiling at 518 on BOTH backends.**
+- [x] ~~FlashInfer unlock~~ — **DONE (built + working), but it does NOT raise the VRAM ceiling.** sw64/nsf4 and
+  sw56/nsf4 OOM on paged KV too (the pool is pre-sized to the window); nsf8 OOMs from an upfront scale-phase
+  activation spike no backend touches. **FlashInfer's real value = SPEED** (~12%: 7.77 vs 6.95 it/s at sw48/nsf4;
+  scales better on long sequences → matters for future mega-maps/stitching), and it's the prerequisite for the
+  pos_embed patch below. Toolchain build recipe banked in the brief (cuda-nvcc 12.8 + gcc-14 + conda-forge
+  sysroot 2.28 to dodge Ubuntu-26.04 glibc 2.41 + WSL libcuda linking; all MCE-safe via single-thread throttle).
+- [ ] **★ pos_embed interpolation patch** — THE remaining ceiling-raiser. Patch `load_model`/forward to
+  interpolate the 518 `pos_embed` to a smaller grid → unlock `--image_size 448/384` (the quadratic memory lever)
+  → the freed VRAM affords `sw64` → FlashInfer makes it fast. Moderate code change; the only real path past
+  sw48/nsf4 without new hardware.
 - [ ] **Re-render catacombs2 hero at sw48/nsf4** and eyeball vs the shipped sw32/nsf4 (`catacombs2q`) — confirm
   the wider window visibly helps before adopting sw48 as the default (screenshots are source of truth).
 
