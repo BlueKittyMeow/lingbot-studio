@@ -9,7 +9,8 @@ intended knobs, made to fit on 16GB via the pos_embed lower-res patch. Beats the
 surface completeness + floater suppression (see "MAX KNOBS WIN" below). Fuse with leveling. Deploy to
 walk.bluekittymeow.com. *(Older note: `sw48/nsf4@518` was the ceiling before the resolution patch existed.)*
 
-**VRAM ceiling — the hard boundary (mapped 2026-08-08, throttled runs, SDPA, forced 518):**
+**VRAM ceiling — the hard boundary (mapped 2026-08-08) — ⚠️ SUPERSEDED by the pos_embed patch (we broke it;
+the full `sw64/nsf8` now runs at `--image_size 448`). Kept below as the historical map of the *518* boundary:**
 - ✅ `sw48/nsf4` fits. ❌ `sw64/nsf4` OOMs. ❌ `sw48/nsf8` & `sw64/nsf8` OOM → **`nsf8` and window>48 both overflow.**
 - **`--image_size` is LOCKED to 518** — the checkpoint's `pos_embed` is hard-baked to the 37×37/1370-token
   grid; `--image_size 448` fails weight-loading (`size mismatch [1,1370,1024] vs [1,1025,1024]`). The quadratic
@@ -45,11 +46,19 @@ walk.bluekittymeow.com. *(Older note: `sw48/nsf4@518` was the ceiling before the
 
 ## 🔜 Up next (queued)
 
+- [~] **Real mesh export — IN PROGRESS (2026-08-09).** TSDF-fuse the courthouse (max-knobs `sw64/nsf8@448`
+  render, 286 frames) into a solid `.glb` via Open3D `ScalableTSDFVolume` (per-frame depth + pose + confidence
+  mask → volumetric fusion → triangle mesh → drop tiny floater clusters → `.glb`). Script: `scripts/ch_mesh.py`.
+  - **Then skin the mesh: MESH-THEN-SPRAY (the order Lara asked about — "after the model").** Build geometry
+    first, then project a skin-source video's frames onto the mesh **vertices** using the KEPT camera poses —
+    literally the same projection as the point-cloud spray, just landing on vertices instead of raw dots. Per-vertex
+    is the easy analog; bake a UV texture atlas later for sharper. Skinning *before* meshing (mesh the coloured
+    dots) also works but blurs — mesh-then-spray wins.
 - [ ] **gsplat-skin** — train a Gaussian *splat* of the waterlily courthouse (splatted skin, not just points).
-- [ ] **Real mesh export** — Poisson / TSDF the courthouse (or catacombs) into a solid textured `.glb` you fly
-  around as an *object*, skin baked into the texture. (We have depth+poses+normals → straight into Open3D.)
-- [ ] **Full cathedral run** — the whole Cologne nave walk (Lara bets it'll shine; test at 20s looked great).
-- [ ] **Full catacombs run** — now that we know the settings.
+- [ ] **Full cathedral run** — the whole Cologne nave walk at max knobs (Lara bets it'll shine; 20s test looked great).
+- [ ] **Full catacombs run** — at max knobs now that it's the default.
+- [ ] **Mirror-reverse Kowloon** (palindrome ceiling↔floor) — still not gotten to! (see creative backlog).
+- [ ] **Adopt cleaner `--model_img_size` patch** before mass re-rendering (avoids the negligible double-resample).
 
 ## 🔧 Pipeline / infrastructure
 
@@ -124,3 +133,10 @@ Kowloon whole-walk (cropped, leveled) · catacombs / catacombs2 / catacombs20 (f
 courthouse density A/B (sparse wins) · sky-masked trained gsplat (the beauty) · World-Mirror install +
 pose-conditioning + Kobayashi-Maru closure proof · first skin (waterlily courthouse) · cathedral 20s test ·
 the studio repo + finding aid + gallery.
+
+**2026-08-08/09 knob-quest:** mapped the 518 VRAM ceiling (sw48/nsf4 max) · **built FlashInfer on WSL**
+(nvcc+gcc-14+conda-sysroot+libcuda, MCE-safe) · **pos_embed lower-res patch → full defaults sw64/nsf8 @448** ·
+**MAX KNOBS WIN** eyeball-confirmed (`catacombs2-max` fair 300-frame test: cleaner surfaces + fewer floaters;
+metrics were a wash — eyeballs decided) · adopted `sw64/nsf8@448` as the default · **`kowloon-max`** deployed
+(max wins on hard footage too — subtler, but clearly better at enclosing the murky corridor) · **1500-frame bug
+diagnosed** (temporal-RoPE table capped at 1024 → one-flag fix `--max_frame_num 2048`, unblocks mega-runs).

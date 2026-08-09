@@ -75,3 +75,17 @@ holes. **Max knobs (`sw64/nsf8@448`) WIN — adopted as the reconstruction defau
 **Lesson (Lara):** eyeballs are required for ANY visual 3D/2D comparison. Metrics measure the *trajectory*; they
 do NOT see surface completeness or floaters. Metrics verify; they don't see. (The whole VRAM-ceiling → FlashInfer
 → pos_embed-patch adventure was worth it precisely to be *able* to run the max knobs and discover this.)
+
+---
+
+## New scenes & artifacts (2026-08-09)
+
+| Scene / artifact | Footage | Settings | What it tests / the finding |
+|---|---|---|---|
+| `catacombs2-max` | Ossuary wall, first 300 frames (matched to `catacombs2q`) | FULL defaults **sw64/nsf8 @448** (pos_embed patch + FlashInfer), leveled | **The MAX-KNOBS WIN.** Fair matched-extent A/B vs `catacombs2q`: coarse metrics a dead heat, but walking both shows max is visibly cleaner + more complete with far fewer floaters. Adopted as default. |
+| `kowloon-max` | Kowloon corridor, same 300-frame crop as `kowloon` | FULL defaults **sw64/nsf8 @448**, leveled (up came out near-vertical) | **Max knobs on HARD footage.** Win holds but subtler than clean catacombs — clearly better at *enclosing* the murky corridor / fewer suspended "fabric-chair" floaters, but Kowloon's thin VHS signal caps both. Confirms the knobs help most where there's good signal to integrate. |
+| `ch_max_mesh.glb` (courthouse) | Courthouse orbit, 286 frames | max knobs @448 → Open3D TSDF (`scripts/ch_mesh.py`) | **First real solid MESH** (triangles, not points) — volumetric TSDF fusion of depth+poses+conf-mask into a `.glb` you fly around as an *object*. Next: skin it mesh-then-spray via the kept cameras. *(building)* |
+
+**Method note — meshing:** `ScalableTSDFVolume` (adaptive voxel = scene-diag/512, sdf_trunc = 5×voxel), per-frame
+RGBD from `depth`+`images`, extrinsic = the NPZ `extrinsic` (W2C) as 4×4, drop the lowest-confidence 30% of depth
+pixels per frame, then remove tiny disconnected triangle clusters (floaters). → `.ply` + `.glb` (trimesh export).
