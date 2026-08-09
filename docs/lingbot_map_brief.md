@@ -429,3 +429,27 @@ House norms: chat decisions with Lara, procedure just runs. Courier bot
 (@TheCourierPingsTwiceBot, creds ~/.config/claude-fling/telegram.env) for pings
 with sample outputs when she's away; long-poll getUpdates in a background
 watcher for replies (never a token poll loop). Traditional greeting applies.
+
+---
+
+## FlashInfer on WSL — built 2026-08-08 (works; does NOT raise the 16GB ceiling)
+
+**Verdict up front:** FlashInfer now runs (was blocked by no `nvcc`). It buys **~12% speed** (7.77 vs 6.95 it/s at sw48/nsf4; scales better on long sequences → matters for future mega-maps/stitching). It does **NOT raise the VRAM ceiling** — `sw48/nsf4` stays the max at 518 on *both* SDPA and FlashInfer. Confirmed on a clean GPU: `sw56/nsf4` and `sw64/nsf4` OOM because FlashInfer pre-allocates its paged KV pool to the *full window* (no better than SDPA's lazy alloc); `nsf8` OOMs from an upfront **scale-phase activation spike** that no attention backend touches. The ceiling is resolution-and-architecture-locked, not backend-locked. (The real ceiling-raiser is the `pos_embed` interpolation patch → lower `--image_size` → freed quadratic VRAM affords `sw64`; FlashInfer then makes it fast.)
+
+**The build — MCE-safe, reproducible (3 compile iterations, zero VM crashes):**
+1. **Toolkit (nvcc):** `conda install -c nvidia cuda-nvcc=12.8 cuda-cudart-dev=12.8 cuda-nvrtc-dev=12.8 libcusparse-dev libcublas-dev` — nvcc + dev headers matching torch 2.8+cu128; pulls no driver, leaves torch untouched. (Do NOT `apt install cuda` — never a driver in WSL.)
+2. **glibc clash (the gotcha):** Ubuntu 26.04 ships **glibc 2.41**, too new for nvcc 12.8 — its `crt/math_functions.h` collides with the system `mathcalls.h` (`error: exception specification is incompatible ... cospif/sinpif/rsqrtf`). **apt `gcc-14` alone does NOT fix it** (still uses `/usr/include` glibc 2.41). FIX: give nvcc an OLD sysroot to compile against — `conda install -c conda-forge gcc_linux-64=14 gxx_linux-64=14 sysroot_linux-64=2.28`, then point nvcc's host compiler at the conda wrapper via `-ccbin $CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++`.
+3. **WSL link (`-lcuda`):** the driver stub isn't in conda; the real `libcuda.so` is at `/usr/lib/wsl/lib`. Add it to `LIBRARY_PATH` or the final link fails `ld: cannot find -lcuda`.
+4. **Engage it:** run WITHOUT `--use_sdpa`. First run JIT-compiles kernels (~10-15 min single-threaded) → cached to `~/.cache/flashinfer` (subsequent runs instant).
+5. **MCE safety:** the JIT compile is a CPU spike that crashes the VM like gsplat's kernels did — throttle it: `TORCH_CUDA_ARCH_LIST=8.9 MAX_JOBS=1 nice -n 15` + systemd `--property=CPUQuota=120%`.
+
+**Working env block:**
+```bash
+export CUDA_HOME=$CONDA_PREFIX PATH=$CONDA_PREFIX/bin:$PATH
+CONDA_CXX=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-c++
+export CC=$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc CXX=$CONDA_CXX CUDAHOSTCXX=$CONDA_CXX
+export LIBRARY_PATH=/usr/lib/wsl/lib:$CONDA_PREFIX/lib/stubs:$CONDA_PREFIX/targets/x86_64-linux/lib/stubs
+export TORCH_CUDA_ARCH_LIST=8.9 MAX_JOBS=1
+export NVCC_APPEND_FLAGS="-allow-unsupported-compiler -ccbin $CONDA_CXX"
+# then: python demo_render/batch_demo.py ... (NO --use_sdpa)
+```
