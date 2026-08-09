@@ -114,3 +114,13 @@ First real solid meshes (triangles, not points) from the max-knobs courthouse. I
 steals voxel resolution. Poisson = smooth, no facets, but balloons. Ball-pivoting (untried) = meshes real points,
 should keep relief, leaves holes. Dots still win on fine offset detail; meshes win on solidity. Choose per goal.
 For skinning, mesh smoothness barely matters — skin is colour projection.
+
+**Ball-pivoting added (`ch_max_mesh_bpa.glb`, `scripts/ch_bpa.py`):** pivots a ball over the real points (no
+voxel averaging) → **kept the columns offset** (the only method that recovered that relief), but **lacy/torn**
+where points were sparse. "Yes, but no."
+
+**Mesh rabbit hole — CLOSED (2026-08-09).** Triptych of meshing worldviews on one building: TSDF (confident,
+averages detail away) · Poisson (smooth, invents lumpy detail) · BPA (honest to points, holey). Each lies
+differently. **Point cloud stays the medium of choice** for these scenes — dots never average, so fine relief
+survives and you fly *through* the space; meshes are the better *solid object* + take a skin, but aren't an
+upgrade for walkthroughs. Five courthouse `.glb`s remain deployed (`walk/mesh.html?model=<glb>`) as the reference set.

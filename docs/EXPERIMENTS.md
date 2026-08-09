@@ -58,11 +58,17 @@ the full `sw64/nsf8` now runs at `--image_size 448`). Kept below as the historic
       building bbox (drops sky+floaters) + finer voxels (diag/700) + lower sdf_trunc → cleaner, but columns still
       mesh-averaged (relief too shallow vs depth noise — modest gain).
     - **Poisson** (`scripts/ch_poisson.py`) — oriented-normal watertight fit. *Smoother, no facets*, but
-      balloons/rounds edges. Normals oriented by flipping toward each point's producing-camera.
-    - **Not yet tried:** Ball-pivoting (meshes actual points → may KEEP column relief, leaves holes),
-      splat-to-mesh (SuGaR/2DGS, heavier), Laplacian-smooth or decimate any of the above.
-    - **Verdict so far:** dots win on fine relief; meshes win on solidity/occlusion. Pick per goal. For *skinning*
-      the smoothing barely matters (skin = colour projection).
+      balloons/rounds edges and *invents* an "illusion of detail" (looks resolved, is objectively mushier).
+    - **Ball-pivoting** (`scripts/ch_bpa.py`) — pivots a ball over the ACTUAL points, no voxel averaging.
+      **DID keep the columns offset** from the facade (the one method that recovered the relief the dots showed),
+      but very **lacy/torn** wherever points were sparse — it refuses to bridge gaps. "Yes, but no" (Lara).
+    - **Not tried (parked):** splat-to-mesh (SuGaR/2DGS, heavier), Laplacian-smooth or decimate any of the above.
+    - **★ VERDICT (mesh rabbit hole CLOSED 2026-08-09):** every mesher "lies" differently — TSDF is confident but
+      averages detail away; Poisson is smooth but invents lumpy detail; BPA is honest to the points but holey.
+      **For these reconstructions the point cloud remains the medium of choice** (dots never average → fine relief
+      survives, and you fly *through* the space). Meshes were a fascinating, worthwhile detour — great for a solid
+      `.glb` object, and the skinning works on them — but not an upgrade over the dots for our walkthroughs.
+      All five courthouse `.glb`s stay deployed at `walk/mesh.html?model=<glb>` as the reference set.
   - **Skinning a mesh = MESH-THEN-SPRAY** (`scripts/skin_mesh*.py`): build geometry first, then project a
     skin-source's frames onto the mesh **vertices** using the KEPT camera poses (same projection as the dot spray,
     landing on vertices). Must use the RAW pre-leveling mesh (camera-aligned), then re-level for display.
