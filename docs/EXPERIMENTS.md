@@ -20,6 +20,8 @@ defaults MCE-crash this box; even sw48 crashed). Fuse with leveling. Deploy to w
   - [ ] Courthouse → Doom (`MnqLJpgq7jc`, crop top notif strip + bottom HUD)
   - [ ] Courthouse → "pretty" cathedral (`k5CMR5b1cIU` @1:02)
   - [ ] Catacombs → waterlilies / Doom / pretty
+  - [ ] **Cathedral → Doom** (`MnqLJpgq7jc`) — gothic bones in hellfire; the sacred-profane clash
+  - [ ] **Cathedral → waterlilies/flowers** (`heR36dG8qh0`) — the nave dissolving into a Monet pond
   - [ ] **Cathedral bones + Kowloon skin** → "walk the Walled City's ghost on cathedral bones" (also sidesteps
     Kowloon's own hard-footage limits by borrowing good geometry). "A pretty of each."
 - [ ] **Spoof the lower half** — fill/fake the cropped-out lower frame region; or the deferred-texturing route
