@@ -60,3 +60,18 @@ We set out to push the ancillary knobs (`kv_cache_sliding_window`, `num_scale_fr
 | `catacombs2-max` | Same ossuary wall, first-200 segment | **FULL defaults sw64/nsf8 @ image_size 448**, pos_embed patch + FlashInfer, leveled | **The ceiling-break.** Proof the model's max knobs run on 16GB via the resolution trade. Coarse drift metrics = dead heat vs `catacombs2` (sw32/nsf4@518) → the A/B is a visual/surface judgement, deployed side-by-side on the wall. |
 
 **Open follow-ups:** (a) full-1500-frame render at 448 hit a `32 vs 22` patch-grid error (very-long-seq path; 200-frame renders clean) — investigate; (b) FP8-KV path (`ureeey` fork `--kv_cache_fp8`) = 2nd route to sw64 keeping 518, at a pose-quality cost; (c) adopt the cleaner `--model_img_size` build-at-518 patch (agent-recommended, avoids a negligible double-resample).
+
+---
+
+## RESOLVED — the max-knobs fair test (eyeball, 2026-08-08)
+
+The `catacombs2-max` question settled. Fair test: **identical first 300 frames**, only settings differ
+(`cata2max300` sw64/nsf8@448 vs `catacombs2q` sw32/nsf4@518). Top-down topography + drift metrics were a
+**dead heat** — the numbers said "wash." But walking BOTH in the web viewer at 6M pts flipped it: the
+**max-knobs reconstruction is visibly cleaner and more complete** — filled surfaces, legible lit chamber, and
+**far fewer floating-streak artifacts**; the lighter config leaves vertical floaters hanging in the void and more
+holes. **Max knobs (`sw64/nsf8@448`) WIN — adopted as the reconstruction default.**
+
+**Lesson (Lara):** eyeballs are required for ANY visual 3D/2D comparison. Metrics measure the *trajectory*; they
+do NOT see surface completeness or floaters. Metrics verify; they don't see. (The whole VRAM-ceiling → FlashInfer
+→ pos_embed-patch adventure was worth it precisely to be *able* to run the max knobs and discover this.)

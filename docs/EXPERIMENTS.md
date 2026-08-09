@@ -3,10 +3,11 @@
 A living backlog of what we want to try. Check things off, add freely. Findings from completed
 experiments migrate to `FINDING_AID.md` + `lingbot_map_brief.md`.
 
-**Baseline settings (as of 2026-08-08):** reconstruct at `--fps 10`, `--use_sdpa`,
-`--kv_cache_sliding_window 48`, `--num_scale_frames 4`. **`sw48/nsf4` is our proven 16GB ceiling**
-(renders 200 clean frames; only a benign teardown segfault). Fuse with leveling. Deploy to
-walk.bluekittymeow.com.
+**Baseline settings (NEW default, 2026-08-08, eyeball-confirmed):** reconstruct at `--fps 10`, FlashInfer
+(no `--use_sdpa`), **`--kv_cache_sliding_window 64 --num_scale_frames 8 --image_size 448`** — the model's FULL
+intended knobs, made to fit on 16GB via the pos_embed lower-res patch. Beats the old `sw48/nsf4@518` on
+surface completeness + floater suppression (see "MAX KNOBS WIN" below). Fuse with leveling. Deploy to
+walk.bluekittymeow.com. *(Older note: `sw48/nsf4@518` was the ceiling before the resolution patch existed.)*
 
 **VRAM ceiling — the hard boundary (mapped 2026-08-08, throttled runs, SDPA, forced 518):**
 - ✅ `sw48/nsf4` fits. ❌ `sw64/nsf4` OOMs. ❌ `sw48/nsf8` & `sw64/nsf8` OOM → **`nsf8` and window>48 both overflow.**
@@ -79,10 +80,20 @@ walk.bluekittymeow.com.
     load clean, NO checkpoint edit) + drive input via `--image_size 448` → the forward interpolates ONCE
     (vs my load-time patch's negligible double-resample). Same VRAM (KV sized by *actual* tokens, not img_size).
   - **Legal `--image_size`: multiples of 14 only — 448 (32×14), 392 (28×14), 378 (27×14). NOT 384.**
-  - **Quality:** 518→448 ≈13% linear downscale, DINOv2/VGGT "graceful regime"; coarse drift metrics unchanged
-    so far → **needs eyes-on** (fuse + walk vs the shipped 518 scene) before adopting as default.
-  - **Recipe (full defaults @448):** FlashInfer env (no `--use_sdpa`) + `--kv_cache_sliding_window 64
-    --num_scale_frames 8 --image_size 448`, throttled. Fits ~clean on 16GB.
+  - **★ RESULT — MAX KNOBS WIN (eyeball-confirmed 2026-08-08, `sw64/nsf8@448` is the new default).**
+    Fair test: identical first 300 frames, only settings differ (`cata2max300` vs `catacombs2q`). Coarse
+    top-down topography + drift metrics were a **dead heat** — so on the numbers it looked like a wash. But
+    **walking both in the web viewer at 6M pts told the real story:** the max-knobs reconstruction is visibly
+    **cleaner and more complete** — filled surfaces, legible lit chamber, and crucially **far fewer floating-
+    streak artifacts**; the lighter `sw32/nsf4@518` leaves vertical floaters hanging in the void and more holes.
+    The wider window + more scale-frames fuse more viewpoints → hole-filling + floater suppression. The ~13%
+    resolution drop (448) costs nothing visible. **Adopt `sw64/nsf8@448` as the reconstruction default.**
+  - **META-LESSON (Lara, confirmed):** *eyeballs are required for ANY visual 3D/2D comparison* — drift/topology
+    metrics measure the trajectory, they do NOT see surface completeness or floaters. Metrics verify; they don't
+    see. (Reinforces the standing "screenshots are source of truth" rule — this is a textbook instance: metrics
+    said wash, the fly-through said max clearly wins.)
+  - **Recipe (the new default):** FlashInfer env (no `--use_sdpa`) + `--kv_cache_sliding_window 64
+    --num_scale_frames 8 --image_size 448`, throttled. Fits ~clean on 16GB. Deployed: walk scene `catacombs2-max`.
 - [ ] **FP8 KV cache (2nd path to sw64, keeps 518)** — fork `ureeey/lingbot-map-rtx4060-8g@rtx4060_8g` adds
   `--kv_cache_fp8` (FlashInfer-only; we have it). Halves the KV pool → `sw64@518` should fit. BUT the fork's own
   benches flag FP8 KV as **"significant" pose/trajectory degradation** — real cost for geometry. Weight-quant
