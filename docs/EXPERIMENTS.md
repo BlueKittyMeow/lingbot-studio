@@ -53,6 +53,17 @@ walk.bluekittymeow.com. *(Older note: `sw48/nsf4@518` was the ceiling before the
 
 ## 🔧 Pipeline / infrastructure
 
+- [x] ~~1500-frame `@448` `32 vs 22` bug~~ — **DIAGNOSED (agent, 2026-08-09): trivial one-flag fix.** The
+  temporal 3D-RoPE freq table (`lingbot_map/layers/rope.py` `WanRotaryPosEmbed.forward`, built at
+  `max_seq_len=max_frame_num` via `stream.py:262`) is capped at **1024**. Once the global frame counter
+  (`total_frames_processed`) crosses 1024, the temporal slice `freqs[0][1024:]` is empty → the RoPE last-dim
+  collapses 32→22 (22 = h_dim//2 + w_dim//2 with the temporal half gone) → `apply_rotary_emb` size mismatch.
+  **NOT our pos_embed patch — independent long-seq bug** (would hit at 518 too, but 518 OOMs before frame 1024;
+  the real threshold is 1024, not ~300, which is why 200/300-frame runs are clean).
+  **FIX: add `--max_frame_num 2048`** (any value > clip length; tiny memory cost). Also raises the FlashInfer
+  paged-KV index cap (`stream.py:226` = max_frame_num+100), so one flag fixes both. Optional proper fix: ~8-line
+  dynamic temporal-table extension in rope.py. **Unblocks whole-tape + 5k-frame mega-runs.**
+
 - [ ] **Two-window stitching** — implement the Umeyama-Sim(3)-on-shared-camera-centres recipe (banked in the
   brief) to reconstruct corridors longer than the ~320-frame VM ceiling at full fps-10. Unlocks the *whole*
   Kowloon tape / 5k-frame catacomb mega-scenes.
