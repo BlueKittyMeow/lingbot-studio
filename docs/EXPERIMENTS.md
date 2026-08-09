@@ -46,14 +46,33 @@ the full `sw64/nsf8` now runs at `--image_size 448`). Kept below as the historic
 
 ## 🔜 Up next (queued)
 
-- [~] **Real mesh export — IN PROGRESS (2026-08-09).** TSDF-fuse the courthouse (max-knobs `sw64/nsf8@448`
-  render, 286 frames) into a solid `.glb` via Open3D `ScalableTSDFVolume` (per-frame depth + pose + confidence
-  mask → volumetric fusion → triangle mesh → drop tiny floater clusters → `.glb`). Script: `scripts/ch_mesh.py`.
-  - **Then skin the mesh: MESH-THEN-SPRAY (the order Lara asked about — "after the model").** Build geometry
-    first, then project a skin-source video's frames onto the mesh **vertices** using the KEPT camera poses —
-    literally the same projection as the point-cloud spray, just landing on vertices instead of raw dots. Per-vertex
-    is the easy analog; bake a UV texture atlas later for sharper. Skinning *before* meshing (mesh the coloured
-    dots) also works but blurs — mesh-then-spray wins.
+- [x] **Real mesh export — DONE (2026-08-09).** Courthouse (max-knobs `sw64/nsf8@448`, 286 frames) → solid
+  `.glb` meshes, viewer at `walk/mesh.html?model=<glb>` (three.js GLTF, `w` wireframe / `l` lit / `f`,`x` reorient).
+  - **Meshing methods compared** (Lara flagged the "triangular-prism" facets):
+    - **TSDF** (`scripts/ch_mesh.py`, Open3D `ScalableTSDFVolume`) — volumetric marching-cubes. Solid but
+      *averages* depth into voxels → **shallow relief smears** (the courthouse columns flattened into the facade;
+      the dot cloud kept them crisply offset — points never average, meshes do). Faceted look = MC at voxel res.
+    - **Sky/floater sabotage (key gotcha):** outdoor sky = far/low-conf depth meshed into big white blobs that
+      ALSO inflate the bbox → since voxel size was bbox-adaptive (diag/512), the sky *stole resolution* from the
+      building, worsening the column smear. Fix (`ch_mesh2.py`, v3): crop every frame's depth to a robust
+      building bbox (drops sky+floaters) + finer voxels (diag/700) + lower sdf_trunc → cleaner, but columns still
+      mesh-averaged (relief too shallow vs depth noise — modest gain).
+    - **Poisson** (`scripts/ch_poisson.py`) — oriented-normal watertight fit. *Smoother, no facets*, but
+      balloons/rounds edges. Normals oriented by flipping toward each point's producing-camera.
+    - **Not yet tried:** Ball-pivoting (meshes actual points → may KEEP column relief, leaves holes),
+      splat-to-mesh (SuGaR/2DGS, heavier), Laplacian-smooth or decimate any of the above.
+    - **Verdict so far:** dots win on fine relief; meshes win on solidity/occlusion. Pick per goal. For *skinning*
+      the smoothing barely matters (skin = colour projection).
+  - **Skinning a mesh = MESH-THEN-SPRAY** (`scripts/skin_mesh*.py`): build geometry first, then project a
+    skin-source's frames onto the mesh **vertices** using the KEPT camera poses (same projection as the dot spray,
+    landing on vertices). Must use the RAW pre-leveling mesh (camera-aligned), then re-level for display.
+  - **★ TWO SKIN MODES (Lara's discovery):**
+    - **Watercolor Effect** (`skin_mesh.py`, weighted-*average* over all views): because the skin video is
+      *playing* while the camera orbits, each vertex blends many different skin-moments → a soft, dilute,
+      **impressionistic** wash. Not a bug — a *look*. Apt for waterlilies (Monet!). Use when you want dreamy/painterly.
+    - **Best-view / crisp** (`skin_mesh2.py`, argmax-facing single view + saturation boost): each vertex takes its
+      one most head-on frame → the actual skin image survives, vivid. Use when you want the skin legible.
+    Deployed: `ch_max_mesh_lily.glb` (watercolor) vs `ch_max_mesh_lily2.glb` (best-view) — same mesh, two moods.
 - [ ] **gsplat-skin** — train a Gaussian *splat* of the waterlily courthouse (splatted skin, not just points).
 - [ ] **Full cathedral run** — the whole Cologne nave walk at max knobs (Lara bets it'll shine; 20s test looked great).
 - [ ] **Full catacombs run** — at max knobs now that it's the default.

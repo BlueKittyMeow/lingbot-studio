@@ -89,3 +89,28 @@ do NOT see surface completeness or floaters. Metrics verify; they don't see. (Th
 **Method note — meshing:** `ScalableTSDFVolume` (adaptive voxel = scene-diag/512, sdf_trunc = 5×voxel), per-frame
 RGBD from `depth`+`images`, extrinsic = the NPZ `extrinsic` (W2C) as 4×4, drop the lowest-confidence 30% of depth
 pixels per frame, then remove tiny disconnected triangle clusters (floaters). → `.ply` + `.glb` (trimesh export).
+
+---
+
+## Courthouse MESH experiments (2026-08-09) — dots → solid model
+
+First real solid meshes (triangles, not points) from the max-knobs courthouse. Interactive viewer:
+`walk/mesh.html?model=<glb>` (three.js; `w` wireframe, `l` lit/flat, `f`/`x` reorient).
+
+| Artifact | Method | Finding |
+|---|---|---|
+| `ch_max_mesh_v2.glb` | **TSDF** (`ch_mesh.py`) | Solid, but columns flattened into the facade (TSDF averages depth into voxels; dots keep true offset). Big white sky-blob artifacts up top. |
+| `ch_max_mesh_v3.glb` | **TSDF, sky-cropped + finer voxels** (`ch_mesh2.py`) | White spray gone (per-frame depth cropped to a robust building bbox), voxels finer — cleaner, but columns still mesh-averaged (relief too shallow). Modest gain. |
+| `ch_max_mesh_poisson.glb` | **Poisson** (`ch_poisson.py`) | Smooth watertight surface — kills the marching-cubes facets — but balloons/rounds edges. Normals oriented toward each point's camera. |
+| `ch_max_mesh_lily.glb` | **Watercolor skin** (`skin_mesh.py`) | Waterlilies sprayed via kept cameras, weighted-**average** over all views → soft impressionistic wash (the playing video blends many skin-moments). |
+| `ch_max_mesh_lily2.glb` | **Best-view skin** (`skin_mesh2.py`) | Same, but each vertex takes its single most head-on frame + saturation → crisp, vivid lily colours. |
+
+**★ Two skin looks, both useful (Lara):**
+- **Watercolor Effect** = averaging + a *playing* skin video → impressionistic/painterly. A deliberate tool now,
+  not a flaw. (Waterlilies → Monet wash. Very apt.)
+- **Best-view** = single most-facing frame per vertex → the skin image stays legible and saturated.
+
+**Meshing method cheat-sheet:** TSDF = solid but smooths shallow relief (columns flatten); crop sky first or it
+steals voxel resolution. Poisson = smooth, no facets, but balloons. Ball-pivoting (untried) = meshes real points,
+should keep relief, leaves holes. Dots still win on fine offset detail; meshes win on solidity. Choose per goal.
+For skinning, mesh smoothness barely matters — skin is colour projection.
