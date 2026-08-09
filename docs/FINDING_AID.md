@@ -44,3 +44,19 @@ Companion image gallery with the "green radiographic" point-maps: `docs/gallery/
 ---
 
 *Full technical detail, recipes, and gotchas: `docs/lingbot_map_brief.md`. Pipeline scripts: `scripts/`.*
+
+---
+
+## Update 2026-08-08 — the VRAM ceiling, mapped & broken
+
+We set out to push the ancillary knobs (`kv_cache_sliding_window`, `num_scale_frames`) past our safe `sw32/nsf4`. Full arc:
+
+1. **Mapped the ceiling.** At native 518 res, `sw48/nsf4` is the hard max on 16GB — `sw56`/`sw64` OOM (KV pool), `nsf8` OOMs (upfront scale-phase activation spike). Confirmed on a clean GPU, on **both** SDPA and FlashInfer. The CPU-throttle defeats the *MCE crash* but not the *VRAM* wall (it's parallelism-in-memory, not slow-able compute).
+2. **Built FlashInfer** (was blocked by no nvcc): cuda-nvcc 12.8 + gcc-14 + conda-forge sysroot 2.28 (dodges Ubuntu-26.04 glibc 2.41) + WSL libcuda linking, all MCE-safe. Payoff = ~12% speed, not headroom — it does NOT raise the ceiling (paged pool pre-sized to window). Recipe in the brief.
+3. **Broke the ceiling with a code patch.** `--image_size` is the quadratic memory lever but was locked (checkpoint `pos_embed` hard-baked to 518). Patched `load_model` to bicubic-interpolate the pretrained pos_embed to a smaller grid → **at `image_size 448` the FULL model defaults `sw64/nsf8` finally fit** (impossible at 518). The model is resolution-agnostic everywhere else (RoPE + DPT head + KV all runtime-sized; the ViT already interpolates pos_embed each forward). Legal sizes: multiples of 14 (448/392/378, not 384).
+
+| Scene id | Footage | Key settings | What it was testing / the finding |
+|---|---|---|---|
+| `catacombs2-max` | Same ossuary wall, first-200 segment | **FULL defaults sw64/nsf8 @ image_size 448**, pos_embed patch + FlashInfer, leveled | **The ceiling-break.** Proof the model's max knobs run on 16GB via the resolution trade. Coarse drift metrics = dead heat vs `catacombs2` (sw32/nsf4@518) → the A/B is a visual/surface judgement, deployed side-by-side on the wall. |
+
+**Open follow-ups:** (a) full-1500-frame render at 448 hit a `32 vs 22` patch-grid error (very-long-seq path; 200-frame renders clean) — investigate; (b) FP8-KV path (`ureeey` fork `--kv_cache_fp8`) = 2nd route to sw64 keeping 518, at a pose-quality cost; (c) adopt the cleaner `--model_img_size` build-at-518 patch (agent-recommended, avoids a negligible double-resample).
